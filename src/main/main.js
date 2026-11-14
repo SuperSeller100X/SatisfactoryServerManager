@@ -317,7 +317,8 @@ function shutdownServers(reason) {
 
 // ------------------------------------------------------------------ IPC
 function registerIpc() {
-  const fromApp = (e) => { try { return new URL(e.senderFrame.url).origin === APP_ORIGIN; } catch { return false; } };
+  // Custom schemes have an opaque ("null") WHATWG origin, so compare scheme + host explicitly.
+  const fromApp = (e) => { try { const u = new URL(e.senderFrame.url); return u.protocol === 'app:' && u.host === 'ssm'; } catch { return false; } };
   const wrap = (fn) => async (e, ...args) => {
     if (!fromApp(e)) return { ok: false, error: { code: 'E_FORBIDDEN', message: 'Untrusted sender' } };
     try { return { ok: true, result: await fn(...args) }; } catch (err) {

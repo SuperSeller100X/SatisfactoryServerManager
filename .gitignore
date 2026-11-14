@@ -4,3 +4,4 @@ out/
 *.log
 .test-data/
 test-results/
+dist-test/
