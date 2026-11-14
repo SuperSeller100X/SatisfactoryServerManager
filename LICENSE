@@ -1,0 +1,158 @@
+SATISFACTORY SERVER MANAGER
+PROPRIETARY NON-COMMERCIAL LICENSE
+Version 1.0
+
+Copyright (c) 2026 SuperSeller100X. All rights reserved.
+
+This license ("License") governs the use of the software "Satisfactory Server
+Manager", including its source code, object code, executables, installers,
+documentation, graphics, illustrations and other accompanying materials
+(together, the "Software"). The Software is licensed, not sold.
+
+By installing, copying, accessing or otherwise using the Software you agree to
+the terms of this License. If you do not agree, do not install or use the
+Software.
+
+1. DEFINITIONS
+
+   "Licensor" means SuperSeller100X, the copyright holder of the Software.
+
+   "You" means the individual natural person exercising rights under this
+   License.
+
+   "Personal, Non-Commercial Use" means use by You for private purposes that
+   are not intended for, or directed toward, commercial advantage or monetary
+   compensation of any kind. Running Satisfactory dedicated servers for
+   yourself, your family or friends free of charge is Personal, Non-Commercial
+   Use.
+
+   "Commercial Use" means any use that is primarily intended for or directed
+   toward commercial advantage or monetary compensation, including without
+   limitation: offering hosting, server management or administration as a
+   paid service; use within or on behalf of a business, company or other
+   organisation for its operations; bundling the Software with a paid product
+   or service; charging fees for access to servers managed with the Software;
+   or monetising the Software by advertising, subscriptions or donations that
+   are a condition of access.
+
+2. GRANT OF LICENSE
+
+   Subject to Your compliance with this License, the Licensor grants You a
+   personal, worldwide, non-exclusive, non-transferable, non-sublicensable,
+   revocable license, free of charge, to:
+
+   a) download, install and use the Software for Personal, Non-Commercial Use
+      on computers that You own or control; and
+
+   b) make copies of the Software solely as necessary for backup and archival
+      purposes in connection with such use.
+
+3. RESTRICTIONS
+
+   Except as expressly permitted by this License or by prior written
+   permission of the Licensor, You may not, in whole or in part:
+
+   a) use the Software for any Commercial Use;
+
+   b) sell, resell, rent, lease, lend, license, sublicense, assign or
+      otherwise transfer the Software or any rights in it;
+
+   c) distribute, publish, re-host, mirror or otherwise make the Software or
+      modified versions of it available to any third party, including through
+      app stores, download portals, package repositories or file-sharing
+      services;
+
+   d) copy, reproduce, adapt, translate or incorporate the source code, or
+      substantial portions of it, into any other software, product or
+      service, whether or not such software is commercial;
+
+   e) create, publish or distribute derivative works of the Software;
+
+   f) remove, alter or obscure any copyright, trademark, license or
+      attribution notices contained in the Software; or
+
+   g) use the Licensor's name, the Software's name or its branding to
+      endorse or promote any product or service.
+
+   Restrictions on reverse engineering, decompilation or disassembly apply
+   only to the extent such restrictions are permitted by applicable law.
+   Nothing in this License limits any rights You may have under applicable
+   law that cannot be waived or restricted by contract.
+
+4. SOURCE CODE AVAILABILITY
+
+   The source code of the Software may be made publicly visible by the
+   Licensor, for example in a public repository. Public visibility of the
+   source code does not grant any right to copy, modify, reuse or distribute
+   it beyond what this License expressly permits. Submitting contributions to
+   the Licensor (for example pull requests) does not by itself grant You any
+   additional rights; contributions are accepted only under terms agreed with
+   the Licensor.
+
+5. THIRD-PARTY COMPONENTS
+
+   The Software includes or depends on third-party components (for example
+   Electron, yazl and yauzl) that are licensed under their own terms. Those
+   components remain subject to their respective licenses, which are
+   reproduced in the file THIRD_PARTY_NOTICES.md distributed with the
+   Software. Nothing in this License restricts Your rights under those
+   third-party licenses with respect to the third-party components themselves.
+
+   The Software interacts with services and software provided by third
+   parties, including Valve Corporation (Steam, SteamCMD), Coffee Stain
+   Studios (Satisfactory and the Satisfactory Dedicated Server) and the
+   ficsit.app mod repository. Your use of those services and software is
+   governed by their own terms. Satisfactory is a trademark of Coffee Stain
+   Studios AB; Steam and SteamCMD are trademarks of Valve Corporation. The
+   Software is not affiliated with or endorsed by Coffee Stain Studios or
+   Valve Corporation.
+
+6. OWNERSHIP
+
+   The Licensor retains all right, title and interest, including all
+   intellectual property rights, in and to the Software. All rights not
+   expressly granted to You under this License are reserved by the Licensor.
+
+7. COMMERCIAL LICENSING
+
+   Commercial Use, redistribution or any use beyond the scope of this License
+   requires a separate written license from the Licensor. Requests can be
+   made through the Software's official repository:
+   https://github.com/SuperSeller100X/SatisfactoryServerManager
+
+8. TERMINATION
+
+   This License terminates automatically if You fail to comply with any of
+   its terms. Upon termination You must stop using the Software and destroy
+   all copies in Your possession or control. Sections 3, 5, 6, 9, 10 and 11
+   survive termination.
+
+9. DISCLAIMER OF WARRANTY
+
+   TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE SOFTWARE IS PROVIDED
+   "AS IS" AND "AS AVAILABLE", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. THE LICENSOR
+   DOES NOT WARRANT THAT THE SOFTWARE WILL BE ERROR-FREE OR THAT IT WILL
+   PROTECT AGAINST ALL DATA LOSS. YOU ARE RESPONSIBLE FOR KEEPING INDEPENDENT
+   BACKUPS OF YOUR DATA.
+
+10. LIMITATION OF LIABILITY
+
+   TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL THE
+   LICENSOR BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL OR
+   PUNITIVE DAMAGES, OR FOR ANY LOSS OF DATA, SAVE GAMES, PROFITS OR GOODWILL,
+   ARISING OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THIS LICENSE, EVEN IF
+   ADVISED OF THE POSSIBILITY OF SUCH DAMAGES. WHERE LIABILITY CANNOT BE
+   EXCLUDED BY LAW (FOR EXAMPLE FOR INTENT, GROSS NEGLIGENCE, OR INJURY TO
+   LIFE, BODY OR HEALTH), IT IS LIMITED TO THE EXTENT REQUIRED BY THAT LAW.
+
+11. GENERAL
+
+   This License is subject to applicable law. If any provision of this
+   License is held invalid or unenforceable, that provision shall be enforced
+   to the maximum extent permissible and the remaining provisions shall
+   remain in full force and effect. Failure to enforce any provision does not
+   constitute a waiver. This License constitutes the entire agreement between
+   You and the Licensor regarding the Software and supersedes any prior
+   understanding regarding its subject matter.

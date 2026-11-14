@@ -18,7 +18,8 @@
     "test:electron": "node test/e2e/run-e2e.js",
     "lint": "node scripts/check-syntax.js",
     "dist:win": "electron-builder --win --x64",
-    "dist:dir": "electron-builder --win --x64 --dir"
+    "dist:dir": "electron-builder --win --x64 --dir",
+    "assets": "node scripts/build-assets.js"
   },
   "engines": {
     "node": ">=22.13"
@@ -43,24 +44,62 @@
       "src/**/*",
       "LICENSE",
       "THIRD_PARTY_NOTICES.md",
-      "package.json"
+      "package.json",
+      "!**/*.map"
     ],
     "extraResources": [
-      { "from": "LICENSE", "to": "LICENSE.txt" },
-      { "from": "THIRD_PARTY_NOTICES.md", "to": "THIRD_PARTY_NOTICES.md" }
+      {
+        "from": "LICENSE",
+        "to": "LICENSE.txt"
+      },
+      {
+        "from": "THIRD_PARTY_NOTICES.md",
+        "to": "THIRD_PARTY_NOTICES.md"
+      }
     ],
+    "asar": true,
     "win": {
-      "target": [ "nsis", "zip" ],
-      "icon": "build/icon.png",
-      "artifactName": "SatisfactoryServerManager-${version}-${arch}.${ext}"
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "artifactName": "SatisfactoryServerManager-${version}-${arch}.${ext}",
+      "legalTrademarks": "Satisfactory is a trademark of Coffee Stain Studios AB."
     },
     "nsis": {
       "oneClick": false,
       "perMachine": false,
+      "selectPerMachineByDefault": false,
+      "allowElevation": true,
       "allowToChangeInstallationDirectory": true,
       "license": "LICENSE",
-      "deleteAppDataOnUninstall": false
-    },
-    "asar": true
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "installerSidebar": "build/installerSidebar.bmp",
+      "uninstallerSidebar": "build/uninstallerSidebar.bmp",
+      "installerHeader": "build/installerHeader.bmp",
+      "createDesktopShortcut": false,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Satisfactory Server Manager",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false,
+      "include": "build/installer.nsh",
+      "artifactName": "SatisfactoryServerManager-Setup-${version}.${ext}",
+      "uninstallDisplayName": "Satisfactory Server Manager",
+      "menuCategory": false,
+      "warningsAsErrors": true
+    }
   }
 }

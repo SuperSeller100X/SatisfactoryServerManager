@@ -33,6 +33,14 @@ function buildChannels(ctx) {
 
   // ---------------------------------------------------------------- app / dashboard
   def('app.info', 'read', none, () => ({ version: require('../../package.json').version, platform: process.platform, arch: process.arch, electron: process.versions.electron, node: process.versions.node, paths: { userData: S.paths.userData, appInstallDir: S.paths.appInstallDir }, firstRunComplete: S.settings.get('general').firstRunComplete, secrets: S.secrets.status(), license: S.license }));
+  def('app.license', 'read', none, async () => {
+    const fsp = require('node:fs/promises');
+    const path = require('node:path');
+    const read = (f) => fsp.readFile(f, 'utf8').catch(() => null);
+    const base = S.paths.appInstallDir;
+    const resources = process.resourcesPath || base;
+    return { ...S.license, text: await read(S.license.file), thirdParty: (await read(path.join(resources, 'THIRD_PARTY_NOTICES.md'))) || (await read(path.join(base, 'THIRD_PARTY_NOTICES.md'))) };
+  });
   def('dashboard.overview', 'read', none, async () => {
     const out = [];
     for (const srv of S.registry.list()) out.push(await S.serverSummary(srv));
@@ -219,6 +227,12 @@ function buildChannels(ctx) {
     if (!ok) throw new AppError('E_CONFIRM_REQUIRED', 'Confirm');
     const srv = S.registry.get(serverId);
     return S.audit.wrap({ actor: c.actor, action: 'firewall.remove', serverId, target: srv.name }, () => firewall.removeRules(srv));
+  });
+  def('files.readJson', 'local', v.object({ file: v.absPath() }), async ({ file }) => {
+    if (!/\.json$/i.test(file)) throw new AppError('E_VALIDATION', 'Only .json files can be imported.');
+    const st = await require('node:fs/promises').stat(file);
+    if (st.size > 2 * 1024 * 1024) throw new AppError('E_VALIDATION', 'The file is too large (max 2 MB).');
+    try { return JSON.parse(await require('node:fs/promises').readFile(file, 'utf8')); } catch { throw new AppError('E_VALIDATION', 'The file is not valid JSON.'); }
   });
   def('system.info', 'read', none, async () => ({ os: sys.windowsInfo(), hardware: sys.hardware(), lan: sys.lanAddresses(), vcRuntime: await sys.vcRuntime() }));
 
