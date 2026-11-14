@@ -271,6 +271,7 @@ class Setup {
   async installDependencies({ installVcRedist = false } = {}) {
     return this._operation('dependencies', async (signal) => {
       const st = await this.ctx.steamcmd.status();
+      if (signal.aborted) throw new Error('cancelled');
       if (!st.installed) {
         this._progress({ phase: 'Downloading SteamCMD from Valve', percent: 0 });
         await this.ctx.steamcmd.ensureInstalled({ onProgress: (p) => this._progress({ phase: 'Downloading SteamCMD from Valve', percent: p.total ? (p.received / p.total) * 100 : null, done: p.received, total: p.total }) });
@@ -279,7 +280,8 @@ class Setup {
       if (!this.s.completed.dependencies || !st.installed) {
         this._progress({ phase: 'Updating SteamCMD (first run can take a few minutes)', percent: null });
         const r = await this.ctx.steamcmd.selfUpdate();
-        if (r.code !== 0 && r.code !== 7) this._log('dependencies', false, `SteamCMD self-update exited with code ${r.code}`);
+        if (r.offline) throw new AppError('E_STEAMCMD_OFFLINE', 'SteamCMD was downloaded, but it could not connect to Steam to finish setting itself up. Check your internet connection (and that a firewall or proxy is not blocking Steam), then select “Install & continue” again.');
+        if (r.ok === false) this._log('dependencies', false, `SteamCMD self-update exited with code ${r.code}`);
       }
       if (installVcRedist) await this._installVcRedist(signal);
       this.ctx.audit.record({ actor: 'setup', action: 'setup.dependencies', details: { steamcmdDownloaded: !st.installed, vcRedist: installVcRedist } });
@@ -520,9 +522,12 @@ function validatePassword(pw, label) {
 /** Translate low-level failures into plain-language explanations. */
 function friendly(err) {
   const m = String(err && err.message ? err.message : err);
+  // Application errors already carry a plain-language message; only translate
+  // raw system errors and SteamCMD failures.
+  if (err && typeof err.code === 'string' && /^E_/.test(err.code) && err.code !== 'E_STEAM_INSTALL') return m;
   if (/ENOSPC|Disk write failure|not enough free/i.test(m)) return 'The drive ran out of free space. Free up space or choose another drive, then resume.';
   if (/EACCES|EPERM|permission/i.test(m)) return 'Windows denied access to the folder. Choose a folder in your user profile, or check that no antivirus program is blocking it.';
-  if (/ENOTFOUND|ECONNRESET|ETIMEDOUT|EAI_AGAIN|network|No Connection|timed out/i.test(m)) return 'The download was interrupted by a network problem. Check your internet connection and select "Resume" — finished parts are kept.';
+  if (/ENOTFOUND|ECONNRESET|ETIMEDOUT|EAI_AGAIN|network|No Connection|timed out|needs to be online|Login Failure|connection/i.test(m)) return 'The download was interrupted by a network problem. Check your internet connection and select "Resume" — finished parts are kept.';
   if (/Invalid platform|No subscription/i.test(m)) return 'Steam refused the download for this branch. Choose the "public" branch and try again.';
   return m;
 }

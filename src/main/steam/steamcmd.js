@@ -131,7 +131,8 @@ class SteamCmd {
   /** Self-update SteamCMD only. */
   async selfUpdate() {
     const res = await this.run(['+quit'], { label: 'self-update' });
-    return { code: res.code, updated: /Update complete|Downloading update/i.test(res.output) };
+    const offline = /needs to be online|Fatal Error|Failed to (?:connect|download)/i.test(res.output);
+    return { code: res.code, updated: /Update complete|Downloading update/i.test(res.output), offline, ok: !offline && [0, 7].includes(res.code) };
   }
 
   /** Query Steam for published branches and their build IDs. */

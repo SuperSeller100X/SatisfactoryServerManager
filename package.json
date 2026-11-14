@@ -14,12 +14,12 @@
   },
   "scripts": {
     "start": "electron .",
-    "test": "node --test --test-concurrency=1 test/unit/",
-    "test:electron": "node test/e2e/run-e2e.js",
+    "test": "node --test --test-concurrency=1 \"test/unit/*.test.js\"",
     "lint": "node scripts/check-syntax.js",
     "dist:win": "electron-builder --win --x64",
     "dist:dir": "electron-builder --win --x64 --dir",
-    "assets": "node scripts/build-assets.js"
+    "assets": "node scripts/build-assets.js",
+    "test:e2e": "node test/e2e/run-e2e.js && node test/e2e/pages-smoke.js"
   },
   "engines": {
     "node": ">=22.13"

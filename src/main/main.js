@@ -405,6 +405,8 @@ app.on('before-quit', (e) => {
 });
 
 function finalize() {
+  // Stop child tools (SteamCMD) so no orphaned downloads keep running; setup progress is persisted and resumable.
+  try { ctx.setup.cancel(); ctx.steamcmd.cancel(); } catch { /* best effort */ }
   try { ctx.health.stop(); ctx.scheduler.stop(); ctx.updates.stop(); ctx.supervisor.dispose(); ctx.probe.dispose(); ctx.web.stop(); ctx.db.close(); } catch { /* best effort */ }
 }
 
