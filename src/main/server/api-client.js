@@ -9,7 +9,11 @@
  * request written on that verified socket. A changed certificate is refused.
  */
 const tls = require('node:tls');
-const https = require('node:https');
+// The request is written with the plain HTTP client over a TLS socket that
+// was already opened and verified (certificate pin) above. https.request would
+// ignore that socket and open a second, CA-validated connection, which fails on
+// self-signed certificates.
+const http = require('node:http');
 const { AppError } = require('../core/util');
 
 /** Functions documented in the server's DedicatedServerAPIDocs (1.0+). */
@@ -62,9 +66,8 @@ class ServerApiClient {
     const bearer = token !== undefined ? token : (this.getToken ? this.getToken() : null);
     const body = JSON.stringify({ function: fn, data });
     return new Promise((resolve, reject) => {
-      const req = https.request({
-        host: this.host, port: this.port, path: '/api/v1', method: 'POST', agent: false,
-        createConnection: () => socket,
+      const req = http.request({
+        host: this.host, port: this.port, path: '/api/v1', method: 'POST', createConnection: () => socket,
         headers: { 'content-type': 'application/json; charset=utf-8', 'content-length': Buffer.byteLength(body), ...(bearer ? { authorization: `Bearer ${bearer}` } : {}) },
         timeout: timeoutMs || this.timeoutMs,
       }, (res) => {

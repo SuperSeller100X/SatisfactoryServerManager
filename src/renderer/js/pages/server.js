@@ -3,7 +3,7 @@
 import { h, mount, fmt, debounce } from '../dom.js';
 import { api } from '../api.js';
 import { icon } from '../icons.js';
-import { statusPill, badge, tabs, card, kv, callout, toast, toastError, confirmDialog, formDialog, actionButton, settingRow, switchInput, table, na, seg, effectLabel } from '../ui.js';
+import { statusPill, badge, tabs, card, kv, callout, toast, toastError, confirmDialog, formDialog, actionButton, settingRow, switchInput, table, na, seg, effectLabel, modal } from '../ui.js';
 import { lineChart } from '../charts.js';
 import { controls } from './common.js';
 
@@ -325,16 +325,25 @@ async function access(body, s, id) {
   const load = async () => {
     const a = await api.call('access.status', { serverId: id }).catch((e) => ({ error: e.message }));
     const acts = [];
-    if (api.desktop && a.running && a.claimed === false) acts.push(actionButton('Claim server', async () => {
-      const v = await formDialog({ title: 'Claim this server', intro: 'Choose a server name and an administrator password. The password is not stored by this app.', fields: [{ key: 'serverName', label: 'Server name', value: s.name, required: true }, { key: 'adminPassword', label: 'Administrator password', type: 'password', required: true, hint: 'At least 8 characters' }], submitLabel: 'Claim', validate: (x) => (x.adminPassword.length < 8 ? 'The password must be at least 8 characters.' : null) });
-      if (v) { await api.call('access.claim', { serverId: id, ...v }); toast('Server claimed', 'Token stored securely', 'success'); load(); }
-    }, { kind: 'primary', iconName: 'shieldCheck' }));
-    if (api.desktop && a.running && a.claimed) acts.push(actionButton('Sign in with admin password', async () => {
-      const v = await formDialog({ title: 'Sign in', fields: [{ key: 'adminPassword', label: 'Administrator password', type: 'password', required: true }], submitLabel: 'Sign in' });
-      if (v) { await api.call('access.login', { serverId: id, ...v }); toast('Signed in', 'Token stored securely', 'success'); load(); }
-    }, { iconName: 'key' }));
+    if (api.desktop && (!a.hasToken || a.tokenValid === false)) acts.push(actionButton('Set up automatically', async () => {
+      if (!a.running) { toast('Starting the server…', 'API access can only be set up while the server runs. Try again once it shows Online.', 'info'); await api.call('servers.start', { serverId: id }).catch(() => {}); return; }
+      let res;
+      try { res = await api.call('access.autoSetup', { serverId: id }); } catch (e) {
+        if (e.code !== 'E_ADMIN_PASSWORD_REQUIRED') throw e;
+        const v = await formDialog({ title: 'Administrator password needed', intro: e.message, fields: [{ key: 'adminPassword', label: 'Administrator password', type: 'password', required: true }], submitLabel: 'Continue' });
+        if (!v) return;
+        res = await api.call('access.autoSetup', { serverId: id, adminPassword: v.adminPassword });
+      }
+      toast('API access set up', res.tokenKind === 'api' ? 'API token created, verified and stored encrypted.' : 'Access token stored encrypted.', 'success');
+      if (res.generatedPassword) modal({ title: 'Administrator password', iconName: 'key', content: h('div', { class: 'col' }, h('p', null, 'The server was claimed with this generated administrator password. You need it to manage the server in-game. It is stored encrypted and can be shown again here.'), h('div', { class: 'pathbox' }, res.generatedPassword)), actions: [{ label: 'Copy', onClick: (close) => { navigator.clipboard.writeText(res.generatedPassword); toast('Copied', '', 'success'); close(); } }, { label: 'Done', kind: 'primary' }] });
+      load();
+    }, { kind: 'primary', iconName: 'zap' }));
+    if (api.desktop && a.adminPasswordStored) acts.push(actionButton('Show admin password', async () => {
+      const r = await api.call('access.revealAdminPassword', { serverId: id });
+      modal({ title: 'Administrator password', iconName: 'key', content: h('div', { class: 'col' }, h('p', null, 'Use this password to manage the server from inside Satisfactory.'), h('div', { class: 'pathbox' }, r.password)), actions: [{ label: 'Copy', onClick: (close) => { navigator.clipboard.writeText(r.password); toast('Copied', '', 'success'); close(); } }, { label: 'Close', kind: 'primary' }] });
+    }, { iconName: 'eye' }));
     if (api.desktop) acts.push(actionButton('Enter API token', async () => {
-      const v = await formDialog({ title: 'Store an API token', intro: 'Generate a token by running server.GenerateAPIToken in the server console, then paste it here. It is stored encrypted.', fields: [{ key: 'token', label: 'API token', type: 'password', required: true }], submitLabel: 'Store token' });
+      const v = await formDialog({ title: 'Store an API token', intro: 'Usually not needed — “Set up automatically” creates a token for you. To use your own, paste the token (or the whole “API Token: …” line). It is verified with the server and stored encrypted.', fields: [{ key: 'token', label: 'API token', type: 'password', required: true }], submitLabel: 'Store token' });
       if (v) { await api.call('access.setToken', { serverId: id, token: v.token.trim() }); toast('Token stored', '', 'success'); load(); }
     }, { iconName: 'key' }));
     if (api.desktop && a.hasToken) acts.push(actionButton('Set player password', async () => {
@@ -346,7 +355,7 @@ async function access(body, s, id) {
     mount(box, h('div', { class: 'grid g2' },
       card('Server API access', 'key', h('div', { class: 'col' }, kv([
         ['Server running', a.running ? 'yes' : 'no'], ['Claimed', a.claimed === null || a.claimed === undefined ? 'unknown (server must run)' : a.claimed ? 'yes' : 'no — unclaimed'],
-        ['Stored token', a.hasToken ? `${a.tokenKind || 'api'} token (encrypted)` : 'none'], ['Token valid', a.tokenValid === null || a.tokenValid === undefined ? 'not checked' : a.tokenValid ? 'yes' : 'rejected by server'],
+        ['Stored token', a.hasToken ? `${a.tokenKind || 'api'} token (encrypted)` : 'none'], ['Admin password', a.adminPasswordStored ? 'stored encrypted (automatic renewal on)' : 'not stored'], ['Token valid', a.tokenValid === null || a.tokenValid === undefined ? 'not checked' : a.tokenValid ? 'yes' : 'rejected by server'],
         ['Certificate', a.pinned ? 'pinned' : 'not yet trusted'],
       ]), a.fingerprint ? h('div', { class: 'pathbox small' }, `SHA-256 ${a.fingerprint}`) : null, a.error ? callout('warn', 'alert', a.error) : null, h('div', { class: 'row wrap' }, acts))),
       card('Why API access matters', 'info', h('div', null, h('p', null, 'With API access the manager can:'), h('ul', { class: 'muted' }, ['save the game and shut down gracefully', 'show player counts, tick rate and session info', 'apply live server options without restart', 'send console commands with results']. map((x) => h('li', null, x))),

@@ -108,7 +108,9 @@ function buildChannels(ctx) {
   def('access.status', 'read', sid, ({ serverId }) => S.access.status(serverId));
   def('access.claim', 'local', v.object({ serverId: v.id(), serverName: name(), adminPassword: v.string({ min: 8, max: 128 }) }), (p, c) => S.access.claim(p.serverId, { ...p, actor: c.actor }));
   def('access.login', 'local', v.object({ serverId: v.id(), adminPassword: v.string({ min: 1, max: 128 }) }), (p, c) => S.access.login(p.serverId, { ...p, actor: c.actor }));
-  def('access.setToken', 'local', v.object({ serverId: v.id(), token: v.string({ min: 20, max: 4096, pattern: /^[A-Za-z0-9._~+/=-]+$/ }) }), (p, c) => S.access.setToken(p.serverId, { ...p, actor: c.actor }));
+  def('access.autoSetup', 'local', v.object({ serverId: v.id(), adminPassword: v.optional(v.string({ max: 128 })), clientPassword: v.optional(v.string({ max: 128 })) }), (p, c) => S.access.autoSetup(p.serverId, { serverName: S.registry.get(p.serverId).name, adminPassword: p.adminPassword || undefined, clientPassword: p.clientPassword || undefined, actor: c.actor }));
+  def('access.revealAdminPassword', 'local', sid, ({ serverId }, c) => S.access.revealAdminPassword(serverId, c.actor));
+  def('access.setToken', 'local', v.object({ serverId: v.id(), token: v.string({ min: 1, max: 8192 }) }), (p, c) => S.access.setToken(p.serverId, { ...p, actor: c.actor }));
   def('access.setClientPassword', 'local', v.object({ serverId: v.id(), password: v.string({ max: 128 }) }), (p, c) => S.access.setClientPassword(p.serverId, { ...p, actor: c.actor }));
   def('access.forget', 'local', sid, ({ serverId }, c) => S.access.forget(serverId, c.actor));
   def('access.resetPin', 'local', v.object({ serverId: v.id(), confirm: v.bool() }), ({ serverId, confirm: ok }, c) => { if (!ok) throw new AppError('E_CONFIRM_REQUIRED', 'Confirm'); return S.access.resetPin(serverId, c.actor); });
@@ -190,8 +192,8 @@ function buildChannels(ctx) {
   def('templates.save', 'configure', v.object({ serverId: v.id(), name: name(), description: v.optional(v.string({ max: 500 })), includeMods: v.optional(v.bool()) }), ({ serverId, ...o }, c) => S.profiles.saveTemplate(serverId, o, c.actor));
   def('templates.update', 'configure', v.object({ id: v.id(), name: v.optional(name()), description: v.optional(v.string({ max: 500 })), config: v.optional(v.json()) }), ({ id, ...o }, c) => S.profiles.updateTemplateDefaults(id, o, c.actor));
   def('templates.remove', 'configure', v.object({ id: v.id() }), ({ id }, c) => S.profiles.removeTemplate(id, c.actor));
-  def('templates.createServer', 'local', v.object({ id: v.id(), name: name(), installDir: v.absPath() }), ({ id, ...o }, c) => S.profiles.createServerFromTemplate(id, o, c.actor));
-  def('templates.duplicateServer', 'local', v.object({ serverId: v.id(), name: name(), installDir: v.absPath() }), ({ serverId, ...o }, c) => S.profiles.duplicateServer(serverId, o, c.actor));
+  def('templates.createServer', 'local', v.object({ id: v.id(), name: name(), installDir: v.absPath(), port: v.optional(v.port()), reliablePort: v.optional(v.port()) }), ({ id, ...o }, c) => S.profiles.createServerFromTemplate(id, o, c.actor));
+  def('templates.duplicateServer', 'local', v.object({ serverId: v.id(), name: name(), installDir: v.absPath(), port: v.optional(v.port()), reliablePort: v.optional(v.port()) }), ({ serverId, ...o }, c) => S.profiles.duplicateServer(serverId, o, c.actor));
   def('templates.export', 'read', v.object({ id: v.id() }), ({ id }) => S.profiles.exportTemplate(id));
   def('templates.import', 'configure', v.object({ document: v.json() }), ({ document }, c) => S.profiles.importTemplate(document, c.actor));
 
@@ -263,7 +265,9 @@ function buildChannels(ctx) {
   def('setup.goTo', 'local', v.object({ step: v.string({ max: 20 }) }), ({ step }) => S.setup.goTo(step));
   def('setup.scan', 'local', none, () => S.setup.scan());
   def('setup.validateLocation', 'local', v.object({ dir: v.string({ min: 1, max: 1024 }), mode: v.optional(v.enum(['new', 'attach'])) }), ({ dir, mode }) => S.setup.validateLocation(dir, mode));
-  def('setup.confirmLocation', 'local', v.object({ dir: v.absPath(), name: name(), branch: v.string({ min: 1, max: 64, pattern: /^[A-Za-z0-9_.-]+$/ }), mode: v.optional(v.enum(['new', 'attach'])), confirmed: v.bool() }), (p) => S.setup.confirmLocation(p));
+  def('setup.checkPorts', 'local', v.object({ port: v.int({ min: 0, max: 99999 }), reliablePort: v.int({ min: 0, max: 99999 }) }), (p) => S.setup.checkPorts(p));
+  def('setup.autoSecurity', 'local', v.object({ adminPassword: v.optional(v.string({ max: 128 })), clientPassword: v.optional(v.string({ max: 128 })) }), (p) => S.setup.autoSecurity(p));
+  def('setup.confirmLocation', 'local', v.object({ dir: v.absPath(), name: name(), branch: v.string({ min: 1, max: 64, pattern: /^[A-Za-z0-9_.-]+$/ }), mode: v.optional(v.enum(['new', 'attach'])), confirmed: v.bool(), port: v.optional(v.port()), reliablePort: v.optional(v.port()) }), (p) => S.setup.confirmLocation(p));
   def('setup.branches', 'local', none, () => S.setup.branches());
   def('setup.installDependencies', 'local', v.object({ installVcRedist: v.optional(v.bool()) }), (p) => S.setup.installDependencies(p));
   def('setup.installServer', 'local', v.object({ repair: v.optional(v.bool()) }), (p) => S.setup.installServer(p));

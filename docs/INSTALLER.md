@@ -72,11 +72,11 @@ Shown automatically when the manager starts for the first time (and from
 | --- | --- |
 | 1. Welcome | Explains the app; shows a recovery banner if a previous run was interrupted |
 | 2. Check this PC | Windows version/architecture, RAM, CPU, free disk space, SteamCMD, Microsoft Visual C++ runtime, existing server installations (Steam libraries), credential storage |
-| 3. Server folder | New install or attach an existing one. Suggested folder `%USERPROFILE%\SatisfactoryServers\Server`; live validation (writable, empty, free space, path length, not a protected/overlapping folder); branch choice (public / experimental, from Steam's published branches); **explicit confirmation checkbox** |
+| 3. Server folder | New install or attach an existing one. Suggested folder `%USERPROFILE%\SatisfactoryServers\Server`; live validation (writable, empty, free space, path length, not a protected/overlapping folder); **game and reliable ports** prefilled with a free pair and checked live (in use by another program or another server, identical ports) with a one-click “Use free ports”; branch choice (public / experimental, from Steam's published branches); **explicit confirmation checkbox** |
 | 4. Prerequisites | Downloads SteamCMD from Valve's official CDN and runs its self-update; optionally installs the Microsoft Visual C++ 2015–2022 runtime from `aka.ms` after verifying Microsoft's Authenticode signature (one UAC prompt) |
 | 5. Install server | `steamcmd +force_install_dir <folder> +login anonymous +app_update 1690800 [-beta experimental] validate +quit` with live progress parsed from SteamCMD; verified via `appmanifest_1690800.acf` (fully installed) and the server executable |
 | 6. Network | Port conflict check (UDP/TCP game port, TCP reliable port) with suggested free ports; Windows Firewall inspection; creates inbound rules after confirmation (one UAC prompt); router port-forwarding explained with an official link |
-| 7. Security | Starts the server once, then uses the official HTTPS API: *PasswordlessLogin → ClaimServer* for new servers or *PasswordLogin* for claimed ones; stores the resulting token encrypted (DPAPI). Passwords are never stored. Can be skipped with an explanation of the consequences |
+| 7. Security | **One click: “Set up automatically”.** Starts the server if needed, then uses the official HTTPS API: *PasswordlessLogin → ClaimServer* with a strong generated administrator password (or one you choose), *RunCommand server.GenerateAPIToken* for a long-lived API token (also captured from the server console if the server prints it there), *VerifyAuthenticationToken*. Token and admin password are stored encrypted (DPAPI); the generated password is shown once and can be revealed later on the server's Access tab. Already-claimed servers ask for the existing admin password once. Invalidated tokens are renewed automatically. Can be skipped |
 | 8. Review | Summary and timeline of completed operations |
 | 9. Finish | Start the server now, auto-start with the manager, optional start-at-sign-in |
 
@@ -105,4 +105,4 @@ Shown automatically when the manager starts for the first time (and from
 - **Router port forwarding** for players outside the local network — cannot be
   automated; explained with a link to the
   [official dedicated server guide](https://satisfactory.wiki.gg/wiki/Dedicated_servers).
-- **Choosing the administrator password** when claiming the server.
+- **The existing administrator password**, only for a server that was claimed before the manager was used (entered once).

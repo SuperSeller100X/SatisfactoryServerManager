@@ -121,9 +121,9 @@ class Profiles {
   removeTemplate(id, actor = 'local') { const t = this.getTemplate(id); this.ctx.db.run('DELETE FROM templates WHERE id = ?', id); this.ctx.audit.record({ actor, action: 'template.delete', target: t.name }); }
 
   /** Register a new server from a template. Files are installed afterwards (Install action). */
-  createServerFromTemplate(id, { name, installDir }, actor = 'local') {
+  createServerFromTemplate(id, { name, installDir, port, reliablePort }, actor = 'local') {
     const t = this.getTemplate(id);
-    const ports = this.ctx.registry.suggestPorts();
+    const ports = port && reliablePort ? { port, reliablePort } : this.ctx.registry.suggestPorts();
     const config = structuredClone(t.data.config);
     config.launch = { ...config.launch, ...ports };
     const srv = this.ctx.registry.create({ name, group: t.data.group || '', installDir, config }, actor);
@@ -132,10 +132,10 @@ class Profiles {
   }
 
   /** Duplicate a server's configuration into a new (not yet installed) server. */
-  duplicateServer(serverId, { name, installDir }, actor = 'local') {
+  duplicateServer(serverId, { name, installDir, port, reliablePort }, actor = 'local') {
     const srv = this.ctx.registry.get(serverId);
     const config = portableConfig(srv.config);
-    config.launch = { ...config.launch, ...this.ctx.registry.suggestPorts() };
+    config.launch = { ...config.launch, ...(port && reliablePort ? { port, reliablePort } : this.ctx.registry.suggestPorts()) };
     const created = this.ctx.registry.create({ name, group: srv.group, installDir, config }, actor);
     this.ctx.audit.record({ actor, action: 'server.duplicate', serverId: created.id, target: name, details: { from: srv.name } });
     return created;

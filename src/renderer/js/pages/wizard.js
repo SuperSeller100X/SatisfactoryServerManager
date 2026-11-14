@@ -147,6 +147,22 @@ export function renderWizard(root, { onDone }) {
       const branchSel = h('select', { class: 'input' }, h('option', { value: 'public' }, 'Stable (public) — recommended'), h('option', { value: 'experimental' }, 'Experimental — newest features, may be unstable'));
       branchSel.value = loc.branch || 'public';
       const confirmBox = h('input', { type: 'checkbox' });
+      const portIn = h('input', { class: 'input', type: 'number', min: 1024, max: 65535, value: loc.port || 7777, style: { width: '130px' } });
+      const relIn = h('input', { class: 'input', type: 'number', min: 1024, max: 65535, value: loc.reliablePort || 8888, style: { width: '130px' } });
+      const portResult = h('div', { class: 'col' });
+      let portCheck = null;
+      const checkPorts = debounce(async () => {
+        try {
+          portCheck = await api.call('setup.checkPorts', { port: Number(portIn.value), reliablePort: Number(relIn.value) });
+          portIn.classList.toggle('invalid', !portCheck.ok); relIn.classList.toggle('invalid', !portCheck.ok);
+          mount(portResult,
+            ...portCheck.errors.map((e) => callout('err', 'alertCircle', e)),
+            portCheck.ok ? callout('ok', 'check', h('b', null, 'Ports are free. '), ...portCheck.warnings) : h('div', null, h('button', { class: 'btn sm', onclick: () => { portIn.value = portCheck.suggestion.port; relIn.value = portCheck.suggestion.reliablePort; checkPorts(); } }, icon('zap'), `Use free ports ${portCheck.suggestion.port} / ${portCheck.suggestion.reliablePort}`)));
+        } catch (err) { portCheck = null; mount(portResult, callout('err', 'alertCircle', err.message)); }
+        updateFoot();
+      }, 300);
+      portIn.addEventListener('input', checkPorts); relIn.addEventListener('input', checkPorts);
+      if (!loc.port) api.call('servers.suggestPorts').then((p) => { portIn.value = p.port; relIn.value = p.reliablePort; checkPorts(); }).catch(() => checkPorts()); else checkPorts();
       const result = h('div', { class: 'col' });
       const confirmText = h('span');
       const modes = h('div', { class: 'grid g2' });
@@ -178,6 +194,9 @@ export function renderWizard(root, { onDone }) {
           h('label', { class: 'field' }, 'Server name', nameIn, h('span', { class: 'hint' }, 'Shown in this app and — after claiming — in the in-game server list.')),
           h('label', { class: 'field' }, 'Server folder', h('div', { class: 'input-group' }, dirIn, browse), h('span', { class: 'hint' }, 'Suggested: ', h('a', { onclick: () => { dirIn.value = st.scan ? st.scan.suggested : dirIn.value; validate(); } }, st.scan ? st.scan.suggested : ''))),
           existing.length && mode === 'attach' ? h('div', { class: 'row wrap' }, existing.map((e) => h('button', { class: 'btn sm', onclick: () => { dirIn.value = e.dir; validate(); } }, icon('server'), e.dir))) : null,
+          h('div', { class: 'field' }, 'Network ports',
+            h('div', { class: 'row wrap' }, h('label', { class: 'field' }, h('span', { class: 'hint' }, 'Game port (UDP + TCP)'), portIn), h('label', { class: 'field' }, h('span', { class: 'hint' }, 'Reliable port (TCP)'), relIn)),
+            h('span', { class: 'hint' }, 'The default 7777 / 8888 is what players expect. Each server on this PC needs its own pair.'), portResult),
           h('label', { class: 'field' }, 'Game branch', branchSel, h('span', { class: 'hint' }, 'The experimental branch is published by Coffee Stain on Steam when available. Players must use the same branch.')),
           result,
           h('label', { class: 'check' }, confirmBox, h('span', null, 'I confirm the server files will be installed in ', h('code', null, confirmText), h('span', { class: 'hint' }, 'Nothing outside this folder will be modified.'))))));
@@ -187,9 +206,9 @@ export function renderWizard(root, { onDone }) {
         for (const b of list) if (b.buildId) { const o = [...branchSel.options].find((x) => x.value === b.name); if (o) o.textContent += ` · build ${b.buildId}`; }
       }).catch(() => {});
       const updateFoot = () => footer({
-        nextEnabled: !!(check && check.ok && confirmBox.checked && nameIn.value.trim()),
+        nextEnabled: !!(check && check.ok && portCheck && portCheck.ok && confirmBox.checked && nameIn.value.trim()),
         onNext: async () => {
-          st = await api.call('setup.confirmLocation', { dir: check.dir, name: nameIn.value.trim(), branch: branchSel.value, mode, confirmed: true });
+          st = await api.call('setup.confirmLocation', { dir: check.dir, name: nameIn.value.trim(), branch: branchSel.value, mode, confirmed: true, port: Number(portIn.value), reliablePort: Number(relIn.value) });
           await next();
         },
       });
@@ -283,54 +302,60 @@ export function renderWizard(root, { onDone }) {
     security() {
       const box = h('div', { class: 'col' });
       progressSlot = h('div');
-      mount(body, panel('security', 'Step 7', 'Secure your server', 'A new server must be “claimed”: you give it a name and an administrator password. The manager then receives an access token so it can save before stopping, read the player count and change settings live.', interruptedBanner(), progressSlot, box));
+      mount(body, panel('security', 'Step 7', 'Secure your server', 'The manager claims your server, creates an API token and stores everything encrypted — automatically. The token lets it save before stopping, read player counts and apply settings live.', interruptedBanner(), progressSlot, box));
       updateProgress();
-      const done = st.verification.hasToken;
       const skipBtn = h('button', { class: 'btn ghost lg', onclick: async () => {
-        if (!(await confirmDialog({ title: 'Skip security setup?', message: 'Without API access the manager cannot stop the server gracefully on Windows, show player counts or apply live settings. You can claim the server later on its Access tab.', confirmLabel: 'Skip for now' }))) return;
+        if (!(await confirmDialog({ title: 'Skip security setup?', message: 'Without API access the manager cannot stop the server gracefully on Windows, show player counts or apply live settings. You can run the automatic setup later on the server’s Access tab.', confirmLabel: 'Skip for now' }))) return;
         st = await api.call('setup.skipSecurity', { reason: 'Skipped during setup' }); await next();
       } }, 'Skip for now');
-      if (done) { mount(box, callout('ok', 'shieldCheck', h('b', null, 'API access is configured. '), 'The access token is stored encrypted with Windows Data Protection. Passwords are never stored.')); footer(); return; }
-      const showForms = async () => {
-        let a;
-        try { a = await api.call('setup.accessStatus'); } catch (err) { mount(box, callout('err', 'alertCircle', err.message)); return; }
-        if (!a || !a.running) {
-          mount(box, callout('info', 'play', 'The server needs to run once for this step. It will start in the background — this can take a few minutes the first time.'));
-          footer({ nextLabel: 'Start server', onNext: async () => {
-            footer({ nextEnabled: false, nextLabel: 'Starting…', extra: [cancelBtn()] });
-            try { await api.call('setup.startForSecurity'); } catch (err) { toastError(err, 'Server did not start'); }
-            await refresh();
-          }, extra: [skipBtn] });
-          return;
+      const showDone = (generatedPassword) => {
+        let shown = false;
+        const pwBox = generatedPassword ? h('div', { class: 'card col' },
+          h('b', null, 'Your server’s administrator password'),
+          h('p', null, 'Generated automatically. You need it to manage the server from inside Satisfactory (Server Manager → Server Settings). It is stored encrypted on this PC and can be shown again on the server’s Access tab.'),
+          h('div', { class: 'row' }, (() => { const el = h('div', { class: 'pathbox grow' }, '••••-••••-••••-••••'); const toggle = h('button', { class: 'btn sm', onclick: () => { shown = !shown; el.textContent = shown ? generatedPassword : '••••-••••-••••-••••'; toggle.lastChild.textContent = shown ? 'Hide' : 'Show'; } }, icon('eye'), h('span', null, 'Show')); return [el, toggle]; })(),
+            h('button', { class: 'btn sm', onclick: () => navigator.clipboard.writeText(generatedPassword).then(() => toast('Password copied', 'Store it in your password manager.', 'success')) }, icon('copy'), 'Copy'))) : null;
+        mount(box, callout('ok', 'shieldCheck', h('b', null, 'API access is set up. '), 'The server is claimed and a verified access token is stored encrypted with Windows Data Protection. If the token is ever invalidated, the manager renews it automatically.'), pwBox);
+        footer();
+      };
+      if (st.verification.hasToken) { showDone(null); return; }
+      const own = h('input', { type: 'checkbox' });
+      const pw = h('input', { class: 'input', type: 'password', autocomplete: 'new-password', placeholder: 'At least 8 characters' });
+      const pw2 = h('input', { class: 'input', type: 'password', autocomplete: 'new-password' });
+      const cpw = h('input', { class: 'input', type: 'password', autocomplete: 'new-password', placeholder: 'Leave empty for no password' });
+      const ownFields = h('div', { class: 'grid g2 hidden' }, h('label', { class: 'field' }, 'Administrator password', pw), h('label', { class: 'field' }, 'Repeat password', pw2));
+      own.addEventListener('change', () => ownFields.classList.toggle('hidden', !own.checked));
+      const err = h('div');
+      const existingPw = h('input', { class: 'input', type: 'password', autocomplete: 'current-password' });
+      const existingBox = h('div', { class: 'card col hidden' }, h('b', null, 'This server was claimed before'), h('p', null, 'Enter its administrator password once. The manager stores it encrypted and takes care of API access automatically from then on.'), h('label', { class: 'field' }, 'Existing administrator password', existingPw));
+      mount(box,
+        h('div', { class: 'card col' },
+          h('div', { class: 'row' }, h('div', { class: 'grow' }, h('b', null, 'Automatic setup'), h('div', { class: 'small muted' }, 'Starts the server if needed, claims it with a strong generated administrator password, creates and verifies an API token, and stores both encrypted.'))),
+          h('label', { class: 'check' }, own, h('span', null, 'Choose my own administrator password instead')), ownFields,
+          h('label', { class: 'field' }, 'Player password (optional)', cpw, h('span', { class: 'hint' }, 'Players must enter this to join. You can change it later.'))),
+        existingBox, err);
+      const run = async () => {
+        mount(err);
+        if (own.checked) {
+          if (pw.value.length < 8) { mount(err, callout('err', 'alertCircle', 'The administrator password must be at least 8 characters.')); return; }
+          if (pw.value !== pw2.value) { mount(err, callout('err', 'alertCircle', 'The passwords do not match.')); return; }
         }
-        if (a.error && a.claimed === null) { mount(box, callout('warn', 'alert', `The server API is not reachable yet: ${a.error}`, h('div', { class: 'mt' }, h('button', { class: 'btn sm', onclick: showForms }, 'Try again')))); footer({ nextEnabled: false, extra: [skipBtn] }); return; }
-        const err = h('div');
-        if (a.claimed === false) {
-          const name = h('input', { class: 'input', value: (st.location && st.location.name) || '' });
-          const pw = h('input', { class: 'input', type: 'password', autocomplete: 'new-password' });
-          const pw2 = h('input', { class: 'input', type: 'password', autocomplete: 'new-password' });
-          const cpw = h('input', { class: 'input', type: 'password', autocomplete: 'new-password', placeholder: 'Leave empty for no password' });
-          mount(box, h('div', { class: 'card col' }, h('h3', null, 'Claim your server'),
-            h('label', { class: 'field' }, 'Server name (shown in the game)', name),
-            h('div', { class: 'grid g2' }, h('label', { class: 'field' }, 'Administrator password', pw, h('span', { class: 'hint' }, 'At least 8 characters. Needed to manage the server in-game.')), h('label', { class: 'field' }, 'Repeat password', pw2)),
-            h('label', { class: 'field' }, 'Player password (optional)', cpw, h('span', { class: 'hint' }, 'Players must enter this to join. You can change it later.')),
-            callout('info', 'lock', 'Write the administrator password down — it is not stored by this app and Coffee Stain cannot recover it.'), err));
-          footer({ nextLabel: 'Claim server', extra: [skipBtn], onNext: async () => {
-            mount(err);
-            if (pw.value.length < 8) { mount(err, callout('err', 'alertCircle', 'The administrator password must be at least 8 characters.')); return; }
-            if (pw.value !== pw2.value) { mount(err, callout('err', 'alertCircle', 'The passwords do not match.')); return; }
-            try { st = await api.call('setup.claim', { serverName: name.value.trim() || 'Satisfactory Server', adminPassword: pw.value, clientPassword: cpw.value || undefined }); toast('Server claimed', 'API access stored securely.', 'success'); await refresh(); } catch (e) { mount(err, callout('err', 'alertCircle', e.message)); }
-          } });
-        } else {
-          const pw = h('input', { class: 'input', type: 'password', autocomplete: 'current-password' });
-          mount(box, h('div', { class: 'card col' }, h('h3', null, 'This server is already claimed'), h('p', null, 'Sign in with its administrator password so the manager can obtain an access token.'), h('label', { class: 'field' }, 'Administrator password', pw), err));
-          footer({ nextLabel: 'Sign in', extra: [skipBtn], onNext: async () => {
-            try { st = await api.call('setup.login', { adminPassword: pw.value }); toast('Signed in', 'API access stored securely.', 'success'); await refresh(); } catch (e) { mount(err, callout('err', 'alertCircle', e.message)); }
-          } });
+        const adminPassword = !existingBox.classList.contains('hidden') ? existingPw.value : own.checked ? pw.value : undefined;
+        footer({ nextEnabled: false, nextLabel: 'Setting up…', extra: [cancelBtn()] });
+        try {
+          const r = await api.call('setup.autoSecurity', { ...(adminPassword ? { adminPassword } : {}), ...(cpw.value ? { clientPassword: cpw.value } : {}) });
+          st = r;
+          drawSteps();
+          toast('Server secured', r.tokenKind === 'api' ? 'API token created and stored.' : 'Access token stored.', 'success');
+          showDone(r.generatedPassword);
+        } catch (e) {
+          if (e.code === 'E_ADMIN_PASSWORD_REQUIRED') { existingBox.classList.remove('hidden'); existingPw.focus(); }
+          mount(err, callout('err', 'alertCircle', e.message));
+          footer({ nextLabel: 'Set up automatically', onNext: run, extra: [skipBtn] });
         }
       };
       if (st.running) { footer({ nextEnabled: false, extra: [cancelBtn()] }); return; }
-      showForms();
+      footer({ nextLabel: 'Set up automatically', onNext: run, extra: [skipBtn] });
     },
 
     async review() {

@@ -111,7 +111,11 @@ class Health {
             this._patch(srv.id, { players: g.numConnectedPlayers, playerLimit: g.playerLimit, tickRate: g.averageTickRate, session: g.activeSessionName, techTier: g.techTier, gamePhase: g.gamePhase, isPaused: g.isGamePaused, isGameRunning: g.isGameRunning, totalGameDuration: g.totalGameDuration, autoLoadSessionName: g.autoLoadSessionName, apiAt: now, apiError: null, apiLatencyMs: res.latency });
             if (prev !== null && prev !== g.numConnectedPlayers) this.ctx.db.run('INSERT INTO player_events (server_id, run_id, ts, kind, player, source) VALUES (?, ?, ?, ?, ?, ?)', srv.id, st.runId, now, 'count', String(g.numConnectedPlayers), 'api');
           }
-        } catch (err) { this._patch(srv.id, { apiError: err.message }); }
+        } catch (err) {
+          this._patch(srv.id, { apiError: err.message });
+          // Token invalidated (e.g. server.InvalidateAPITokens): renew it automatically with the stored admin password.
+          if (this.ctx.access && require('./access').isAuthError(err)) this.ctx.access.repair(srv.id).then((ok) => { if (ok) this._patch(srv.id, { apiError: null }); }).catch(() => {});
+        }
       }
     }
   }

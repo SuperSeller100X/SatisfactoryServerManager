@@ -5,7 +5,11 @@
  * Every call goes over TLS to a pinned certificate; nothing is sent until
  * the fingerprint matched.
  */
-const https = require('node:https');
+// The request is written with the plain HTTP client over a TLS socket that
+// was already opened and verified (certificate pin) above. https.request would
+// ignore that socket and open a second, CA-validated connection, which fails on
+// self-signed certificates.
+const http = require('node:http');
 const { connectAndInspect } = require('../server/api-client');
 const { AppError, newId } = require('../core/util');
 
@@ -29,7 +33,7 @@ class RemoteClient {
         if (fp !== fingerprint) { socket.destroy(); return reject(new AppError('E_REMOTE_CERT', 'The remote computer presented a different certificate than the one you trusted. The connection was refused.')); }
         const data = body ? JSON.stringify(body) : '';
         const started = Date.now();
-        const req = https.request({ host, port, method, path: urlPath, agent: false, createConnection: () => socket, timeout: 30000, headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(data), ...(token ? { authorization: `Bearer ${token}` } : {}) } }, (res) => {
+        const req = http.request({ host, port, method, path: urlPath, createConnection: () => socket, timeout: 30000, headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(data), ...(token ? { authorization: `Bearer ${token}` } : {}) } }, (res) => {
           const chunks = [];
           let size = 0;
           res.on('data', (c) => { size += c.length; if (size > 16 * 1024 * 1024) req.destroy(new Error('Response too large')); chunks.push(c); });

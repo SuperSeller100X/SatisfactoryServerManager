@@ -126,6 +126,12 @@ class Supervisor {
   // ---- console -------------------------------------------------------------
   _push(id, src, text, runId) {
     const s = this._st(id);
+    // A token printed by server.GenerateAPIToken is captured (verified + stored
+    // encrypted) before the console masks it; it is never shown or logged.
+    if ((src === 'out' || src === 'err') && this.ctx.access && this.ctx.access.isExpectingToken(id)) {
+      const tok = parseGeneratedToken(text);
+      if (tok) this.ctx.access.captureToken(id, tok).catch(() => {});
+    }
     const clean = redactText(text.replace(/\u001b\[[0-9;]*m/g, ''));
     const parsed = src === 'sys' ? { level: 'system', category: 'Manager', serverTs: null, message: clean } : parseLine(clean);
     const line = { seq: ++s.seq, ts: Date.now(), src, runId: runId ?? s.runId, text: clean, ...parsed };
@@ -424,6 +430,11 @@ class Supervisor {
     const exited = new Promise((resolve) => { s.onStopped = resolve; });
 
     let graceful = false;
+    // If the stored token was invalidated but an admin password is stored, renew access first.
+    if (!force && this.ctx.access && this.ctx.access.hasAdminPassword(id)) {
+      const tokenOk = this.hasToken(id) && await this.api(id).verifyToken(this.ctx.secrets.get(this.tokenKey(id))).then(() => true, () => false);
+      if (!tokenOk) await this.ctx.access.repair(id).catch(() => false);
+    }
     if (!force && this.hasToken(id)) {
       const api = this.api(id);
       try {
@@ -525,16 +536,15 @@ class Supervisor {
     if (!this.isActive(id)) throw new AppError('E_NOT_RUNNING', 'The server is not running.');
     this._push(id, 'cmd', `> ${command}`);
     let via = 'stdin';
+    const generating = /server\.GenerateAPIToken/i.test(command) && this.ctx.access;
+    if (generating) this.ctx.access.expectToken(id);
     if (this.hasToken(id)) {
       via = 'api';
       try {
         const res = await this.api(id).runCommand(command);
         const out = res.data && res.data.commandResult !== undefined ? String(res.data.commandResult) : '';
+        if (generating && parseGeneratedToken(out)) await this.ctx.access.captureToken(id, out);
         for (const l of (out || '(no output)').split(/\r?\n/)) this._push(id, 'sys', `[RunCommand] ${l}`);
-        if (/GenerateAPIToken/i.test(command)) {
-          const tok = parseGeneratedToken(out);
-          if (tok) this.sys(id, 'An API token was generated. Use Server → Access to store a token securely.');
-        }
       } catch (err) {
         this._push(id, 'sys', `[RunCommand] failed: ${err.message}`);
         throw err;

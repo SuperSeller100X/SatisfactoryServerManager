@@ -198,9 +198,41 @@ class Setup {
     return { ok: errors.length === 0, errors, warnings, info, dir: resolved };
   }
 
-  async confirmLocation({ dir, name, branch = 'public', mode = 'new', confirmed }) {
+  /**
+   * Check a port pair for a new or existing server: valid range, distinct,
+   * not used by another configured server and currently free on this PC.
+   */
+  async checkPorts({ port, reliablePort }) {
+    const errors = []; const warnings = [];
+    for (const [p, label] of [[port, 'Game port'], [reliablePort, 'Reliable port']]) if (!Number.isInteger(p) || p < 1024 || p > 65535) errors.push(`${label} must be a number between 1024 and 65535.`);
+    if (port === reliablePort) errors.push('Game port and reliable port must be different.');
+    if (!errors.length) {
+      for (const s of this.ctx.registry.list()) {
+        if (this.s.serverId && s.id === this.s.serverId) continue;
+        const used = [s.config.launch.port, s.config.launch.reliablePort];
+        for (const p of [port, reliablePort]) if (used.includes(p)) errors.push(`Port ${p} is already used by the server "${s.name}".`);
+      }
+      const own = this.server;
+      const ownRunning = own && this.ctx.supervisor.isActive(own.id) && own.config.launch.port === port && own.config.launch.reliablePort === reliablePort;
+      if (!ownRunning) {
+        for (const [p, proto] of [[port, 'udp'], [port, 'tcp'], [reliablePort, 'tcp']]) {
+          if (!(await checkPortFree(p, proto))) errors.push(`${proto.toUpperCase()} port ${p} is in use by another program on this PC.`);
+        }
+      }
+      if (port !== 7777 || reliablePort !== 8888) warnings.push(`Players must enter port ${port} when adding the server in Satisfactory.`);
+    }
+    return { ok: errors.length === 0, errors: [...new Set(errors)], warnings, suggestion: this.ctx.registry.suggestPorts() };
+  }
+
+  async confirmLocation({ dir, name, branch = 'public', mode = 'new', confirmed, port, reliablePort }) {
     if (!confirmed) throw new AppError('E_CONFIRM_REQUIRED', 'Please confirm the installation folder.');
     if (this.abort) throw new AppError('E_BUSY', 'An operation is in progress.');
+    let ports = null;
+    if (port !== undefined || reliablePort !== undefined) {
+      const pc = await this.checkPorts({ port, reliablePort });
+      if (!pc.ok) throw new AppError('E_PORT_CONFLICT', pc.errors.join(' '));
+      ports = { port, reliablePort };
+    }
     const check = await this.validateLocation(dir, mode);
     if (!check.ok) throw new AppError('E_LOCATION', check.errors.join(' '));
     const resolved = check.dir;
@@ -221,13 +253,12 @@ class Setup {
         if (this.ctx.supervisor.isActive(existing.id)) throw new AppError('E_SERVER_RUNNING', 'Stop the server before changing its folder.');
         this.ctx.registry.setInstallDir(existing.id, resolved, 'setup');
       }
-      srv = this.ctx.registry.update(existing.id, { name, config: { branch } }, { actor: 'setup', reason: 'setup' }).server;
+      srv = this.ctx.registry.update(existing.id, { name, config: { branch, ...(ports ? { launch: ports } : {}) } }, { actor: 'setup', reason: 'setup' }).server;
     } else {
-      const ports = this.ctx.registry.suggestPorts();
-      srv = this.ctx.registry.create({ name, installDir: resolved, config: { branch, launch: ports } }, 'setup');
+      srv = this.ctx.registry.create({ name, installDir: resolved, config: { branch, launch: ports || this.ctx.registry.suggestPorts() } }, 'setup');
     }
     this.s.serverId = srv.id;
-    this.s.location = { dir: resolved, name, branch, mode: effectiveMode, createdByWizard, confirmedAt: Date.now() };
+    this.s.location = { dir: resolved, name, branch, mode: effectiveMode, createdByWizard, confirmedAt: Date.now(), port: srv.config.launch.port, reliablePort: srv.config.launch.reliablePort };
     this.s.completed.location = Date.now();
     delete this.s.completed.install;
     this._log('location', true, `Server folder set to ${resolved} (${effectiveMode === 'attach' ? 'existing installation' : 'new installation'})`);
@@ -436,6 +467,27 @@ class Setup {
       }
       throw new AppError('E_START_TIMEOUT', 'The server did not respond within 10 minutes.');
     });
+  }
+
+  /**
+   * One-click security setup: start the server if needed, claim it (with a
+   * generated or chosen admin password), generate and verify an API token and
+   * store everything encrypted. Returns the generated admin password once so it
+   * can be shown to the user.
+   */
+  async autoSecurity({ adminPassword, clientPassword } = {}) {
+    const srv = this.server;
+    if (!srv) throw new AppError('E_STEP_INCOMPLETE', 'Choose the server folder first.');
+    if (!this.ctx.supervisor.isActive(srv.id) || !this.ctx.supervisor.status(srv.id).readyAt) await this.startForSecurity();
+    const result = await this._operation('security', async () => {
+      this._progress({ phase: 'Securing the server and creating an API token', percent: null });
+      const r = await this.ctx.access.autoSetup(srv.id, { serverName: (this.s.location && this.s.location.name) || srv.name, adminPassword: adminPassword || undefined, clientPassword: clientPassword || undefined, actor: 'setup' });
+      return { ...r, message: r.alreadyConfigured ? 'API access was already configured' : `Server secured; ${r.tokenKind === 'api' ? 'API token' : 'administrator token'} created, verified and stored encrypted` };
+    });
+    this.s.completed.security = Date.now();
+    delete this.s.skipped.security;
+    this._save();
+    return { ...(await this.state()), generatedPassword: result.generatedPassword || null, tokenKind: result.tokenKind };
   }
 
   async accessStatus() { return this.server ? this.ctx.access.status(this.s.serverId) : null; }
