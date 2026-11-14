@@ -1,0 +1,66 @@
+{
+  "name": "satisfactory-server-manager",
+  "productName": "Satisfactory Server Manager",
+  "version": "1.0.0",
+  "description": "Desktop manager for Satisfactory dedicated servers on Windows: installation, monitoring, backups, mods, scheduling and secure remote management.",
+  "main": "src/main/main.js",
+  "author": "SuperSeller100X",
+  "license": "SEE LICENSE IN LICENSE",
+  "private": true,
+  "homepage": "https://github.com/SuperSeller100X/SatisfactoryServerManager",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SuperSeller100X/SatisfactoryServerManager.git"
+  },
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test --test-concurrency=1 test/unit/",
+    "test:electron": "node test/e2e/run-e2e.js",
+    "lint": "node scripts/check-syntax.js",
+    "dist:win": "electron-builder --win --x64",
+    "dist:dir": "electron-builder --win --x64 --dir"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "dependencies": {
+    "yauzl": "3.4.0",
+    "yazl": "3.3.1"
+  },
+  "devDependencies": {
+    "electron": "44.11.3",
+    "electron-builder": "26.18.0"
+  },
+  "build": {
+    "appId": "com.superseller100x.satisfactoryservermanager",
+    "productName": "Satisfactory Server Manager",
+    "copyright": "Copyright (c) 2026 SuperSeller100X",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "LICENSE",
+      "THIRD_PARTY_NOTICES.md",
+      "package.json"
+    ],
+    "extraResources": [
+      { "from": "LICENSE", "to": "LICENSE.txt" },
+      { "from": "THIRD_PARTY_NOTICES.md", "to": "THIRD_PARTY_NOTICES.md" }
+    ],
+    "win": {
+      "target": [ "nsis", "zip" ],
+      "icon": "build/icon.png",
+      "artifactName": "SatisfactoryServerManager-${version}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "license": "LICENSE",
+      "deleteAppDataOnUninstall": false
+    },
+    "asar": true
+  }
+}
