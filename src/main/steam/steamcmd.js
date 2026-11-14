@@ -181,6 +181,15 @@ async function readAppManifest(installDir) {
   };
 }
 
+/**
+ * True when SteamCMD left unfinished download data. SteamCMD keeps an empty
+ * `steamapps/downloading` folder after successful installs, so only a
+ * non-empty folder counts as a pending (interrupted) download.
+ */
+async function hasPendingDownload(installDir) {
+  try { return (await fsp.readdir(path.join(installDir, 'steamapps', 'downloading'))).length > 0; } catch { return false; }
+}
+
 /** Find existing installs in Steam libraries (libraryfolders.vdf). */
 async function discoverSteamInstalls(libraryRoots) {
   const found = [];
@@ -202,4 +211,4 @@ async function discoverSteamInstalls(libraryRoots) {
   return [...new Set(found)];
 }
 
-module.exports = { SteamCmd, readAppManifest, discoverSteamInstalls, STEAMCMD_URL, PROGRESS_RE };
+module.exports = { SteamCmd, readAppManifest, discoverSteamInstalls, hasPendingDownload, STEAMCMD_URL, PROGRESS_RE };

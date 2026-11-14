@@ -12,7 +12,7 @@ const path = require('node:path');
 const layout = require('../server/layout');
 const firewall = require('./firewall');
 const sys = require('./system');
-const { readAppManifest } = require('../steam/steamcmd');
+const { readAppManifest, hasPendingDownload } = require('../steam/steamcmd');
 const { checkPortFree } = require('../server/supervisor');
 const { exists, diskSpace, listFiles, writeFileAtomic } = require('../core/fsutil');
 const { createZip } = require('../core/zip');
@@ -83,7 +83,7 @@ class Diagnostics {
       if (!manifest.fullyInstalled) out.push(this.f('files', 'error', 'Installation is incomplete', 'Steam reports that the installation is not fully completed (for example an interrupted download or update).', [`StateFlags=${manifest.stateFlags}`], 'Validate the installation to finish it.', { action: 'validate', label: 'Complete installation', safe: true, needsConfirm: true, description: 'Runs SteamCMD app_update 1690800 validate.' }));
       if (manifest.branch !== (srv.config.branch || 'public')) out.push(this.f('files', 'warning', 'Installed branch differs from the configured branch', `The installed files are from the "${manifest.branch}" branch but this server is configured for "${srv.config.branch}".`, [`manifest BetaKey=${manifest.branch}`], 'Run an update to switch the files to the configured branch, or change the branch setting.'));
     }
-    if (await exists(path.join(srv.installDir, 'steamapps', 'downloading'))) out.push(this.f('files', 'info', 'Leftover download data found', 'Temporary files from an interrupted download are present. They are reused by the next update or can be removed in Storage.', [path.join(srv.installDir, 'steamapps', 'downloading')], 'Run an update or validation; SteamCMD resumes and clears them.'));
+    if (await hasPendingDownload(srv.installDir)) out.push(this.f('files', 'info', 'Leftover download data found', 'Temporary files from an interrupted download are present. They are reused by the next update or can be removed in Storage.', [path.join(srv.installDir, 'steamapps', 'downloading')], 'Run an update or validation; SteamCMD resumes and clears them.'));
     return out;
   }
 

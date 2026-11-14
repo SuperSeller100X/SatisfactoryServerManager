@@ -10,7 +10,7 @@ const fsp = require('node:fs/promises');
 const { execFile } = require('node:child_process');
 const { diskSpace, exists } = require('../core/fsutil');
 const layout = require('../server/layout');
-const { readAppManifest, discoverSteamInstalls } = require('../steam/steamcmd');
+const { readAppManifest, discoverSteamInstalls, hasPendingDownload } = require('../steam/steamcmd');
 
 const VCREDIST_URL = 'https://aka.ms/vs/17/release/vc_redist.x64.exe';
 const VCREDIST_HOSTS = ['aka.ms', 'download.visualstudio.microsoft.com'];
@@ -91,7 +91,7 @@ async function inspectInstallDir(dir) {
   } catch { /* does not exist */ }
   res.hasServer = await exists(layout.serverExecutable(dir));
   res.manifest = await readAppManifest(dir).catch(() => null);
-  res.partial = !!(res.manifest && !res.manifest.fullyInstalled) || (await exists(path.join(dir, 'steamapps', 'downloading'))) || (!!res.manifest && !res.hasServer);
+  res.partial = !!(res.manifest && !res.manifest.fullyInstalled) || (await hasPendingDownload(dir)) || (!!res.manifest && !res.hasServer);
   try {
     let probe = dir;
     while (!(await exists(probe))) probe = path.dirname(probe);

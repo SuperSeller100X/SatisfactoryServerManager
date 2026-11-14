@@ -23,14 +23,16 @@ class StubSteamCmd {
   cancel() { this.cancelled = true; if (this.release) this.release(); }
   async installApp(dir, { branch, onProgress, signal }) {
     this.calls.push(`installApp:${branch}`);
-    fs.mkdirSync(path.join(dir, 'steamapps', 'downloading'), { recursive: true });
+    fs.mkdirSync(path.join(dir, 'steamapps', 'downloading', '1690800'), { recursive: true });
     onProgress({ state: 'downloading', percent: 42.5, done: 425, total: 1000 });
     if (this.mode === 'block') {
       await new Promise((r) => { this.release = r; if (signal) signal.addEventListener('abort', r, { once: true }); });
       throw new Error('SteamCMD terminated');
     }
     if (this.mode === 'fail') throw Object.assign(new Error('ERROR! Failed to install app (Disk write failure)'), { code: 'E_STEAM_INSTALL' });
+    // Like real SteamCMD: the download data is removed but the empty folder stays behind.
     fs.rmSync(path.join(dir, 'steamapps', 'downloading'), { recursive: true, force: true });
+    fs.mkdirSync(path.join(dir, 'steamapps', 'downloading'), { recursive: true });
     const exe = layout.serverExecutable(dir);
     fs.mkdirSync(path.dirname(exe), { recursive: true });
     fs.writeFileSync(exe, 'binary');
@@ -136,6 +138,36 @@ test('offline SteamCMD self-update is a clear failure, not a silent success', as
   ctx.steamcmd.offline = false;
   await ctx.setup.installDependencies({});
   assert.equal((await ctx.setup.verify()).verified.dependencies, true);
+  ctx.supervisor.dispose();
+});
+
+test('regression: completed install with empty steamapps/downloading folder is complete and the wizard can continue', async () => {
+  const ctx = build();
+  const dir = path.join(tmpDir(), 'srv');
+  await ctx.setup.scan();
+  await ctx.setup.confirmLocation({ dir, name: 'S', branch: 'public', confirmed: true });
+  await ctx.setup.installDependencies({});
+  await ctx.setup.goTo('install');
+  await ctx.setup.installServer({});
+  assert.ok(fs.existsSync(path.join(dir, 'steamapps', 'downloading')), 'empty folder left behind like real SteamCMD');
+  const v = await ctx.setup.verify();
+  assert.equal(v.install.state, 'complete');
+  assert.equal(v.verified.install, true);
+  const st = await ctx.setup.goTo('network');
+  assert.equal(st.step, 'network');
+  ctx.supervisor.dispose();
+});
+
+test('non-empty download folder is still detected as an interrupted download', async () => {
+  const ctx = build();
+  const dir = path.join(tmpDir(), 'srv');
+  await ctx.setup.confirmLocation({ dir, name: 'S', branch: 'public', confirmed: true });
+  await ctx.setup.installServer({});
+  fs.mkdirSync(path.join(dir, 'steamapps', 'downloading', '1690800'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'steamapps', 'downloading', '1690800', 'chunk'), 'x');
+  const v = await ctx.setup.verify();
+  assert.equal(v.install.state, 'partial');
+  assert.match(v.install.reason, /interrupted download/);
   ctx.supervisor.dispose();
 });
 

@@ -19,7 +19,7 @@ const os = require('node:os');
 const layout = require('../server/layout');
 const sys = require('./system');
 const firewall = require('./firewall');
-const { readAppManifest } = require('../steam/steamcmd');
+const { readAppManifest, hasPendingDownload } = require('../steam/steamcmd');
 const { checkPortFree } = require('../server/supervisor');
 const { download } = require('../core/http');
 const { exists, isInside, diskSpace } = require('../core/fsutil');
@@ -85,7 +85,7 @@ class Setup {
     if (srv) {
       const manifest = await readAppManifest(srv.installDir).catch(() => null);
       const exe = await exists(layout.serverExecutable(srv.installDir));
-      const downloading = await exists(path.join(srv.installDir, 'steamapps', 'downloading'));
+      const downloading = await hasPendingDownload(srv.installDir);
       const branchOk = !manifest || (manifest.branch || 'public') === (srv.config.branch || 'public');
       if (manifest && manifest.fullyInstalled && exe && branchOk && !downloading) install = { state: 'complete', buildId: manifest.buildId, branch: manifest.branch };
       else if (manifest || exe || downloading) install = { state: 'partial', buildId: manifest ? manifest.buildId : null, reason: !exe ? 'Server executable missing' : !branchOk ? `Installed branch "${manifest.branch}" differs from the selected "${srv.config.branch}"` : downloading ? 'An interrupted download was found' : 'Steam reports the installation as incomplete' };
